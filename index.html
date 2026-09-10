@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
   <title>Book Doubt Viewer</title>
-  <meta name="description" content="Keep clear photos of your book in one place, zoom into difficult steps, and show the exact question to your sir without carrying the book around.">
+  <meta name="description" content="Store your book photos, inspect difficult questions, and show your doubts clearly.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -18,17 +18,35 @@
       <div class="header-main-row">
         <div class="header-text-col">
           <h1 class="main-title">Book Doubt Viewer</h1>
-          <p class="subtitle">Keep clear photos of your book in one place, zoom into difficult steps, and show the exact question to your sir without carrying the book around.</p>
+          <p class="subtitle">Store your book photos, inspect difficult questions, and show your doubts clearly.</p>
         </div>
         <div class="header-badges">
-          <span class="pill-badge" id="photoCountBadge">0 photos</span>
-          <span class="pill-badge" id="storageBadge"><strong>Local</strong> storage</span>
+          <span class="pill-badge" id="photoCountBadge">0 doubts</span>
+          <span class="pill-badge status-pill" id="backendStatusBadge" title="Backend connection status (Click to change backend URL)">
+            <span class="status-dot offline" id="statusDot"></span>
+            <span class="status-text" id="statusText">Checking...</span>
+          </span>
         </div>
       </div>
     </header>
 
     <!-- Main Content Flow -->
     <main class="main-content">
+      <!-- Graceful Offline Alert Banner -->
+      <div class="offline-banner" id="offlineBanner" hidden>
+        <div class="offline-icon-box" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="8" x2="12" y2="12"></line>
+            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+          </svg>
+        </div>
+        <div class="offline-text">
+          <h4 class="offline-title">Backend Offline</h4>
+          <p class="offline-msg">Start the MyBook server on your laptop to upload and view your saved book photos.</p>
+        </div>
+      </div>
+
       <!-- Search & Top Action Bar -->
       <div class="action-bar">
         <div class="search-field-wrap">
@@ -74,7 +92,7 @@
           <div class="progress-track">
             <div class="progress-bar" id="progressBar"></div>
           </div>
-          <span class="progress-detail" id="progressDetail">Preserving uncompressed quality in /uploads</span>
+          <span class="progress-detail" id="progressDetail">Preserving uncompressed quality in laptop /uploads</span>
         </div>
       </div>
 
@@ -82,7 +100,6 @@
       <div class="photo-grid" id="photoGrid" role="list">
         <!-- Photo cards rendered dynamically via app.js -->
       </div>
-
     </main>
   </div>
 
@@ -181,7 +198,7 @@
         </svg>
       </button>
 
-      <button type="button" class="dock-btn" id="btnRotate" title="Rotate 90° clockwise (R)" aria-label="Rotate 90 degrees clockwise">
+      <button type="button" class="dock-btn" id="btnRotate" title="Rotate 90° clockwise" aria-label="Rotate 90 degrees clockwise">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M21.5 2v6h-6"></path>
           <path d="M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path>
@@ -195,7 +212,7 @@
     </nav>
   </div>
 
-  <!-- Keyboard Shortcut Legend Modal -->
+  <!-- Keyboard Shortcuts Modal -->
   <div class="modal-backdrop" id="helpModal" hidden>
     <div class="modal-card">
       <div class="modal-header">
@@ -209,7 +226,6 @@
         <div class="shortcut-row"><kbd class="key">+</kbd> / <kbd class="key">=</kbd><span class="desc">Zoom in (up to 8×)</span></div>
         <div class="shortcut-row"><kbd class="key">-</kbd><span class="desc">Zoom out</span></div>
         <div class="shortcut-row"><kbd class="key">0</kbd><span class="desc">Reset to fit screen</span></div>
-        <div class="shortcut-row"><kbd class="key">R</kbd><span class="desc">Rotate 90° clockwise</span></div>
         <div class="shortcut-row"><span class="key-combo"><kbd class="key">Scroll</kbd></span><span class="desc">Zoom under cursor</span></div>
         <div class="shortcut-row"><span class="key-combo"><kbd class="key">Click + Drag</kbd></span><span class="desc">Pan around textbook page</span></div>
       </div>
@@ -226,7 +242,7 @@
         <h4 class="modal-title" id="confirmModalTitle">Delete Doubt Photo?</h4>
         <button type="button" class="modal-close-btn" id="closeConfirmModal">&times;</button>
       </div>
-      <p class="modal-body" id="confirmModalBody">Are you sure you want to delete this photo from your local storage? This cannot be undone.</p>
+      <p class="modal-body" id="confirmModalBody">Are you sure you want to delete this photo from your laptop storage? This cannot be undone.</p>
       <div class="modal-actions">
         <button type="button" class="btn-modal-cancel" id="cancelConfirmBtn">Cancel</button>
         <button type="button" class="btn-modal-delete" id="executeConfirmBtn">Delete</button>
@@ -234,7 +250,7 @@
     </div>
   </div>
 
-  <!-- Notification Toasts -->
+  <!-- Toast Notification Container -->
   <div class="toast-container" id="toastContainer" aria-live="polite"></div>
 
   <script src="app.js"></script>

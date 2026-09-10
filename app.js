@@ -1,13 +1,30 @@
 /**
- * Book Doubt Viewer - Application Logic
- * Matches the clean, minimal study tool reference UI.
+ * Book Doubt Viewer - Public Frontend Application Logic
+ * Hosted on GitHub Pages: https://yathin7639.github.io/MyBook/
+ * Connects to your laptop backend running at API_BASE_URL.
  */
+
+// =========================================================================
+// 1. FRONTEND ↔ BACKEND CONFIGURATION
+// Change this single variable if your laptop IP, tunnel, or port changes.
+// =========================================================================
+const API_BASE_URL = "http://localhost:3000";
 
 (function () {
   'use strict';
 
-  // State Management
+  // Helper to get active backend URL (supports localStorage override via UI click)
+  function getBackendUrl() {
+    const saved = localStorage.getItem('mybook_backend_url');
+    if (saved && saved.trim()) {
+      return saved.trim().replace(/\/+$/, '');
+    }
+    return API_BASE_URL.replace(/\/+$/, '');
+  }
+
+  // Application State
   const state = {
+    backendOnline: false,
     photos: [],
     filteredPhotos: [],
     searchQuery: '',
@@ -25,11 +42,11 @@
     initialPanX: 0,
     initialPanY: 0,
     
-    // Pinch to zoom state
+    // Touch pinch state
     initialPinchDistance: null,
     initialPinchScale: 1,
 
-    // Pending deletion ID or 'ALL'
+    // Deletion target
     pendingDeleteTarget: null
   };
 
@@ -37,10 +54,14 @@
   const MAX_SCALE = 8.0;
   const ZOOM_STEP = 0.3;
 
-  // DOM Elements
+  // DOM Element Selectors
   const el = {
+    // Header & Status
     photoCountBadge: document.getElementById('photoCountBadge'),
-    storageBadge: document.getElementById('storageBadge'),
+    backendStatusBadge: document.getElementById('backendStatusBadge'),
+    statusDot: document.getElementById('statusDot'),
+    statusText: document.getElementById('statusText'),
+    offlineBanner: document.getElementById('offlineBanner'),
 
     // Upload
     fileInput: document.getElementById('fileInput'),
@@ -97,59 +118,93 @@
     toastContainer: document.getElementById('toastContainer')
   };
 
+  // =========================================================================
+  // Initialization
+  // =========================================================================
   function init() {
     setupEventListeners();
-    fetchPhotos();
-  }
-
-  // Fixed tunnel URL dedicated to your GitHub Pages frontend
-  const GITHUB_PAGES_BACKEND_URL = 'https://yathin-book-doubt-viewer.loca.lt';
-
-  function getApiBase() {
-    // 1. If user set a custom backend URL in settings, use it
-    const custom = localStorage.getItem('doubt_viewer_backend_url');
-    if (custom) return custom.replace(/\/+$/, '');
-
-    // 2. If running on GitHub Pages or external domain, automatically use your laptop tunnel
-    const isLocal = ['localhost', '127.0.0.1'].includes(window.location.hostname);
-    if (!isLocal || window.location.hostname.includes('github.io')) {
-      return GITHUB_PAGES_BACKEND_URL;
-    }
-
-    // 3. If running locally on localhost/127.0.0.1, use relative origin
-    return '';
+    checkHealthAndLoad();
+    // Poll backend health every 15 seconds to detect when laptop server starts/stops
+    setInterval(checkBackendHealthOnly, 15000);
   }
 
   // =========================================================================
-  // API Calls
+  // 2. BACKEND HEALTH & CONNECTION STATUS
+  // =========================================================================
+  async function checkHealthAndLoad() {
+    const isUp = await checkBackendHealthOnly();
+    if (isUp) {
+      await fetchPhotos();
+    } else {
+      renderGallery();
+    }
+  }
+
+  async function checkBackendHealthOnly() {
+    const base = getBackendUrl();
+    try {
+      const res = await fetch(`${base}/api/health`, {
+        method: 'GET',
+        headers: { 'Accept': 'application/json' }
+      });
+
+      if (res.ok) {
+        setBackendStatus(true);
+        return true;
+      } else {
+        setBackendStatus(false);
+        return false;
+      }
+    } catch (err) {
+      setBackendStatus(false);
+      return false;
+    }
+  }
+
+  function setBackendStatus(online) {
+    state.backendOnline = online;
+
+    if (online) {
+      el.statusDot.className = 'status-dot connected';
+      el.statusText.textContent = 'Backend connected';
+      el.offlineBanner.hidden = true;
+      el.dropzone.classList.remove('is-disabled');
+      el.addPhotosBtn.disabled = false;
+    } else {
+      el.statusDot.className = 'status-dot offline';
+      el.statusText.textContent = 'Backend offline';
+      el.offlineBanner.hidden = false;
+      el.dropzone.classList.add('is-disabled');
+      el.addPhotosBtn.disabled = true;
+    }
+  }
+
+  // =========================================================================
+  // 3. API CALLS (Using getBackendUrl())
   // =========================================================================
   async function fetchPhotos() {
-    const apiBase = getApiBase();
-    const isLocal = ['localhost', '127.0.0.1'].includes(window.location.hostname);
-
-    if (!apiBase && !isLocal) {
-      showToast('Click "Local storage" at top-right to enter your laptop tunnel URL.', 'error');
-      renderGallery();
-      return;
-    }
-
+    const base = getBackendUrl();
     try {
-      const response = await fetch(`${apiBase}/api/photos`, {
-        headers: { 'Bypass-Tunnel-Reminder': 'true' }
-      });
+      const response = await fetch(`${base}/api/photos`);
       if (!response.ok) throw new Error(`Server status ${response.status}`);
       const data = await response.json();
       state.photos = Array.isArray(data) ? data : [];
       applyFilter();
       updateBadges();
+      setBackendStatus(true);
     } catch (err) {
-      console.error('Failed to fetch photos:', err);
-      showToast('Could not connect to laptop backend. Click "Local storage" to update URL.', 'error');
+      console.warn('Photos fetch error:', err.message);
+      setBackendStatus(false);
       renderGallery();
     }
   }
 
   async function uploadFiles(files) {
+    if (!state.backendOnline) {
+      showToast('Backend is offline. Start your laptop server first.', 'error');
+      return;
+    }
+
     if (!files || files.length === 0) return;
 
     const validFiles = [];
@@ -180,8 +235,8 @@
     showUploadProgress(true, `Uploading ${validFiles.length} photo(s)...`);
 
     const xhr = new XMLHttpRequest();
-    xhr.open('POST', `${getApiBase()}/api/photos`, true);
-    xhr.setRequestHeader('Bypass-Tunnel-Reminder', 'true');
+    const base = getBackendUrl();
+    xhr.open('POST', `${base}/api/photos`, true);
 
     xhr.upload.onprogress = (e) => {
       if (e.lengthComputable) {
@@ -195,7 +250,7 @@
       if (xhr.status >= 200 && xhr.status < 300) {
         try {
           const res = JSON.parse(xhr.responseText);
-          showToast(`Added ${res.count || validFiles.length} book photo(s)`, 'success');
+          showToast(`Added ${res.count || validFiles.length} book photo(s) to laptop`, 'success');
         } catch (e) {
           showToast('Uploaded photos successfully.', 'success');
         }
@@ -212,21 +267,22 @@
 
     xhr.onerror = () => {
       showUploadProgress(false);
-      showToast('Network error during upload.', 'error');
+      showToast('Network error during upload. Check laptop server.', 'error');
+      setBackendStatus(false);
     };
 
     xhr.send(formData);
   }
 
   async function deletePhoto(photoId) {
+    const base = getBackendUrl();
     try {
-      const response = await fetch(`${getApiBase()}/api/photos/${encodeURIComponent(photoId)}`, {
-        method: 'DELETE',
-        headers: { 'Bypass-Tunnel-Reminder': 'true' }
+      const response = await fetch(`${base}/api/photos/${encodeURIComponent(photoId)}`, {
+        method: 'DELETE'
       });
 
       if (!response.ok) throw new Error('Failed to delete photo.');
-      showToast('Photo removed from storage.', 'success');
+      showToast('Photo removed from laptop storage.', 'success');
 
       if (state.viewerOpen) {
         const currentActive = state.filteredPhotos[state.activePhotoIndex];
@@ -241,14 +297,12 @@
   }
 
   async function deleteAllPhotos() {
+    const base = getBackendUrl();
     try {
-      const response = await fetch(`${getApiBase()}/api/photos`, {
-        method: 'DELETE',
-        headers: { 'Bypass-Tunnel-Reminder': 'true' }
-      });
+      const response = await fetch(`${base}/api/photos`, { method: 'DELETE' });
       if (!response.ok) throw new Error('Failed to clear photos.');
 
-      showToast('All textbook photos cleared.', 'success');
+      showToast('All book photos cleared from laptop.', 'success');
       if (state.viewerOpen) closeViewer();
       fetchPhotos();
     } catch (err) {
@@ -257,7 +311,7 @@
   }
 
   // =========================================================================
-  // Gallery Rendering & Filtering
+  // 4. GALLERY RENDERING & FILTERING
   // =========================================================================
   function applyFilter() {
     const q = state.searchQuery.trim().toLowerCase();
@@ -271,8 +325,8 @@
 
   function updateBadges() {
     const total = state.photos.length;
-    el.photoCountBadge.textContent = `${total} ${total === 1 ? 'photo' : 'photos'}`;
-    el.deleteAllBtn.disabled = total === 0;
+    el.photoCountBadge.textContent = `${total} ${total === 1 ? 'doubt' : 'doubts'}`;
+    el.deleteAllBtn.disabled = total === 0 || !state.backendOnline;
   }
 
   function renderGallery() {
@@ -285,28 +339,6 @@
     });
   }
 
-  // Cache of image blobs for tunnel bypass
-  const blobUrlCache = new Map();
-
-  async function getImageSrc(rawUrl) {
-    if (!rawUrl) return '';
-    if (blobUrlCache.has(rawUrl)) return blobUrlCache.get(rawUrl);
-    if (!rawUrl.includes('loca.lt')) return rawUrl;
-
-    try {
-      const res = await fetch(rawUrl, {
-        headers: { 'Bypass-Tunnel-Reminder': 'true' }
-      });
-      if (!res.ok) throw new Error('Failed to load blob');
-      const blob = await res.blob();
-      const objectUrl = URL.createObjectURL(blob);
-      blobUrlCache.set(rawUrl, objectUrl);
-      return objectUrl;
-    } catch (e) {
-      return rawUrl;
-    }
-  }
-
   function createCard(photo, index) {
     const card = document.createElement('article');
     card.className = 'doubt-card';
@@ -314,11 +346,12 @@
 
     const formattedSize = formatFileSize(photo.size);
     const formattedDate = formatDate(photo.created);
-    const imageUrl = `${getApiBase()}/uploads/${encodeURIComponent(photo.filename)}`;
+    const base = getBackendUrl();
+    const imageUrl = `${base}/uploads/${encodeURIComponent(photo.filename)}`;
 
     card.innerHTML = `
       <div class="doubt-thumbnail-container" data-index="${index}" title="Click to inspect question">
-        <img class="doubt-thumbnail" src="" alt="${escapeHtml(photo.name)}" loading="lazy">
+        <img class="doubt-thumbnail" src="${imageUrl}" alt="${escapeHtml(photo.name)}" loading="lazy">
         <div class="doubt-thumb-overlay">
           <span class="inspect-pill">Inspect</span>
         </div>
@@ -341,12 +374,6 @@
       </div>
     `;
 
-    // Load image through tunnel safely
-    const thumbImg = card.querySelector('.doubt-thumbnail');
-    getImageSrc(imageUrl).then(src => {
-      if (thumbImg) thumbImg.src = src;
-    });
-
     card.querySelector('.doubt-thumbnail-container').addEventListener('click', () => openViewer(index));
     card.querySelector('.btn-card-open').addEventListener('click', () => openViewer(index));
     card.querySelector('.btn-card-delete').addEventListener('click', (e) => {
@@ -358,7 +385,7 @@
   }
 
   // =========================================================================
-  // Inspection Viewer (Zoom, Pan, Rotate, Shortcuts)
+  // 5. FULLSCREEN TEXTBOOK INSPECTION VIEWER (8× Zoom, Pan, Rotate)
   // =========================================================================
   function openViewer(index) {
     if (index < 0 || index >= state.filteredPhotos.length) return;
@@ -385,7 +412,8 @@
     const photo = state.filteredPhotos[state.activePhotoIndex];
     if (!photo) return;
 
-    const imageUrl = `${getApiBase()}/uploads/${encodeURIComponent(photo.filename)}`;
+    const base = getBackendUrl();
+    const imageUrl = `${base}/uploads/${encodeURIComponent(photo.filename)}`;
 
     el.viewerFilename.textContent = photo.name;
     el.viewerFilename.title = photo.name;
@@ -398,10 +426,7 @@
     el.viewerPrevBtn.disabled = state.filteredPhotos.length <= 1;
     el.viewerNextBtn.disabled = state.filteredPhotos.length <= 1;
 
-    el.viewerImage.src = '';
-    getImageSrc(imageUrl).then(src => {
-      el.viewerImage.src = src;
-    });
+    el.viewerImage.src = imageUrl;
     resetViewerTransform();
   }
 
@@ -461,15 +486,14 @@
 
     const pct = Math.round(state.scale * 100);
     el.zoomPercentage.textContent = `${pct}%`;
-
     el.viewerPanHint.style.opacity = state.scale > 1.0 ? '0.9' : '0.4';
   }
 
-  // Interactive gestures
+  // Interactive gestures: wheel zoom & mouse drag pan
   function setupViewerInteractions() {
     const viewport = el.viewerViewport;
 
-    // Mouse Wheel Zoom
+    // Mouse Wheel Zoom centered on cursor
     viewport.addEventListener('wheel', (e) => {
       e.preventDefault();
       const zoomFactor = e.deltaY < 0 ? 1.15 : 0.87;
@@ -506,7 +530,7 @@
       }
     });
 
-    // Touch support (1 finger drag, 2 finger pinch)
+    // Touch Drag & Two-Finger Pinch Zoom for Mobile / Tablet
     viewport.addEventListener('touchstart', (e) => {
       if (e.touches.length === 1) {
         state.isDragging = true;
@@ -559,7 +583,9 @@
     return Math.sqrt(dx * dx + dy * dy);
   }
 
-  // Keyboard Shortcuts
+  // =========================================================================
+  // 6. KEYBOARD SHORTCUTS
+  // =========================================================================
   function handleKeyDown(e) {
     if (document.activeElement === el.searchInput) {
       if (e.key === 'Escape') {
@@ -591,11 +617,13 @@
     }
   }
 
-  // Deletion Modals
+  // =========================================================================
+  // 7. CONFIRMATION MODALS
+  // =========================================================================
   function promptDelete(id, name) {
     state.pendingDeleteTarget = id;
     el.confirmModalTitle.textContent = 'Delete Doubt Photo?';
-    el.confirmModalBody.textContent = `Are you sure you want to permanently delete "${name}"? The image file will be removed from local storage.`;
+    el.confirmModalBody.textContent = `Are you sure you want to permanently delete "${name}"? The file will be removed from your laptop storage.`;
     el.executeConfirmBtn.textContent = 'Delete';
     el.confirmModal.hidden = false;
   }
@@ -604,7 +632,7 @@
     if (state.photos.length === 0) return;
     state.pendingDeleteTarget = 'ALL';
     el.confirmModalTitle.textContent = 'Clear All Photos?';
-    el.confirmModalBody.textContent = `Are you sure you want to clear all ${state.photos.length} uploaded photos from local storage?`;
+    el.confirmModalBody.textContent = `Are you sure you want to clear all ${state.photos.length} uploaded photos from your laptop storage?`;
     el.executeConfirmBtn.textContent = 'Clear All';
     el.confirmModal.hidden = false;
   }
@@ -635,12 +663,25 @@
     if (label) el.progressStatus.textContent = label;
   }
 
-  // Setup Event Listeners
+  // =========================================================================
+  // 8. EVENT LISTENERS SETUP
+  // =========================================================================
   function setupEventListeners() {
-    el.addPhotosBtn.addEventListener('click', () => el.fileInput.click());
-    
-    // Dropzone click
+    // Add Photos
+    el.addPhotosBtn.addEventListener('click', () => {
+      if (!state.backendOnline) {
+        showToast('Backend is offline. Start your laptop server first.', 'error');
+        return;
+      }
+      el.fileInput.click();
+    });
+
+    // Dropzone
     el.dropzone.addEventListener('click', (e) => {
+      if (!state.backendOnline) {
+        showToast('Backend is offline. Start your laptop server first.', 'error');
+        return;
+      }
       if (!e.target.closest('#uploadProgressContainer')) {
         el.fileInput.click();
       }
@@ -657,7 +698,7 @@
       dropzone.addEventListener(eventName, (e) => {
         e.preventDefault();
         e.stopPropagation();
-        dropzone.classList.add('drag-active');
+        if (state.backendOnline) dropzone.classList.add('drag-active');
       });
     });
 
@@ -693,25 +734,23 @@
 
     el.deleteAllBtn.addEventListener('click', promptDeleteAll);
 
-    // Click storage badge to view / configure laptop backend URL (e.g. for remote frontend hosting)
-    el.storageBadge.style.cursor = 'pointer';
-    el.storageBadge.title = 'Click to view or configure Backend URL';
-    el.storageBadge.addEventListener('click', () => {
-      const current = localStorage.getItem('doubt_viewer_backend_url') || window.location.origin;
+    // Click Status Badge to configure/view Backend URL
+    el.backendStatusBadge.addEventListener('click', () => {
+      const current = getBackendUrl();
       const input = prompt(
-        'Laptop Backend Configuration:\n\nIf your frontend is hosted online (e.g. on Vercel/Netlify), enter the URL where your laptop backend is reachable (e.g. http://192.168.29.160:3000 or your ngrok/Cloudflare tunnel URL):',
+        'Backend URL Configuration:\n\nEnter the backend URL running on your laptop (e.g. http://localhost:3000, http://192.168.x.x:3000, or your tunnel URL):',
         current
       );
       if (input !== null) {
         const trimmed = input.trim();
-        if (trimmed && trimmed !== window.location.origin) {
-          localStorage.setItem('doubt_viewer_backend_url', trimmed);
-          showToast(`Connected to backend: ${trimmed}`, 'success');
+        if (trimmed && trimmed !== API_BASE_URL) {
+          localStorage.setItem('mybook_backend_url', trimmed);
+          showToast(`Backend set to: ${trimmed}`, 'success');
         } else {
-          localStorage.removeItem('doubt_viewer_backend_url');
-          showToast('Reset to default local origin', 'info');
+          localStorage.removeItem('mybook_backend_url');
+          showToast(`Using default: ${API_BASE_URL}`, 'info');
         }
-        fetchPhotos();
+        checkHealthAndLoad();
       }
     });
 

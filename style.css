@@ -1,5 +1,5 @@
 /* ==========================================================================
-   Book Doubt Viewer - Exact Reference Dark Theme Styling
+   Book Doubt Viewer - Modern Dark Study Utility Design System
    ========================================================================== */
 
 :root {
@@ -17,6 +17,8 @@
   --text-secondary: #94a3b8;
   --text-muted: #64748b;
   --text-cyan: #38bdf8;
+  --status-green: #10b981;
+  --status-amber: #f59e0b;
 
   --btn-white: #ffffff;
   --btn-white-text: #05070c;
@@ -72,7 +74,7 @@ body {
 }
 
 /* ==========================================================================
-   Header Section (Exact Match to Reference)
+   Header Section
    ========================================================================== */
 .app-header {
   margin-bottom: 2rem;
@@ -116,7 +118,7 @@ body {
   max-width: 620px;
 }
 
-/* Top Right Pill Badges */
+/* Top Right Badges & Connection Status */
 .header-badges {
   display: flex;
   align-items: center;
@@ -133,9 +135,83 @@ body {
   white-space: nowrap;
 }
 
-.pill-badge strong {
-  color: var(--text-primary);
-  font-weight: 600;
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.status-pill:hover {
+  background: #161e2e;
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.status-dot.connected {
+  background-color: var(--status-green);
+  box-shadow: 0 0 8px var(--status-green);
+}
+
+.status-dot.offline {
+  background-color: var(--status-amber);
+  box-shadow: 0 0 6px rgba(245, 158, 11, 0.5);
+}
+
+/* ==========================================================================
+   Offline Banner
+   ========================================================================== */
+.offline-banner {
+  background: #14120b;
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  border-radius: var(--radius-md);
+  padding: 1rem 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+  animation: fadeIn 0.2s ease;
+}
+
+.offline-banner[hidden] {
+  display: none !important;
+}
+
+.offline-icon-box {
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-sm);
+  background: rgba(245, 158, 11, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--status-amber);
+  flex-shrink: 0;
+}
+
+.offline-icon-box svg {
+  width: 20px;
+  height: 20px;
+}
+
+.offline-title {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #fde68a;
+  margin-bottom: 0.15rem;
+}
+
+.offline-msg {
+  font-size: 0.85rem;
+  color: #d1d5db;
+  line-height: 1.4;
 }
 
 /* ==========================================================================
@@ -235,13 +311,14 @@ body {
   transition: all 0.15s ease;
 }
 
-.btn-add-photos:hover {
+.btn-add-photos:hover:not(:disabled) {
   background: var(--btn-white-hover);
   transform: translateY(-1px);
 }
 
-.btn-add-photos:active {
-  transform: translateY(0);
+.btn-add-photos:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 /* ==========================================================================
@@ -268,6 +345,12 @@ body {
 .dropzone.drag-active {
   border-color: var(--text-cyan);
   background: rgba(56, 189, 248, 0.06);
+}
+
+.dropzone.is-disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  pointer-events: none;
 }
 
 .dropzone-content {
@@ -355,8 +438,6 @@ body {
   margin-top: 0.5rem;
 }
 
-
-
 /* ==========================================================================
    Photo Grid & Doubt Cards
    ========================================================================== */
@@ -398,6 +479,7 @@ body {
   height: 100%;
   object-fit: cover;
   image-rendering: high-quality;
+  image-rendering: -webkit-optimize-contrast;
   transition: transform 0.25s ease;
 }
 
