@@ -105,6 +105,19 @@
   function getApiBase() {
     const custom = localStorage.getItem('doubt_viewer_backend_url');
     if (custom) return custom.replace(/\/+$/, '');
+
+    // If hosted remotely (e.g. on GitHub Pages) and not on localhost
+    const isLocal = ['localhost', '127.0.0.1'].includes(window.location.hostname);
+    if (!isLocal) {
+      const entered = prompt(
+        'Connect to your Laptop Backend:\n\nPlease enter your Localtunnel URL from your laptop\n(e.g. https://xxxx.loca.lt):'
+      );
+      if (entered && entered.trim()) {
+        const cleanUrl = entered.trim().replace(/\/+$/, '');
+        localStorage.setItem('doubt_viewer_backend_url', cleanUrl);
+        return cleanUrl;
+      }
+    }
     return '';
   }
 
@@ -112,8 +125,19 @@
   // API Calls
   // =========================================================================
   async function fetchPhotos() {
+    const apiBase = getApiBase();
+    const isLocal = ['localhost', '127.0.0.1'].includes(window.location.hostname);
+
+    if (!apiBase && !isLocal) {
+      showToast('Click "Local storage" at top-right to enter your laptop tunnel URL.', 'error');
+      renderGallery();
+      return;
+    }
+
     try {
-      const response = await fetch(`${getApiBase()}/api/photos`);
+      const response = await fetch(`${apiBase}/api/photos`, {
+        headers: { 'Bypass-Tunnel-Reminder': 'true' }
+      });
       if (!response.ok) throw new Error(`Server status ${response.status}`);
       const data = await response.json();
       state.photos = Array.isArray(data) ? data : [];
@@ -121,7 +145,7 @@
       updateBadges();
     } catch (err) {
       console.error('Failed to fetch photos:', err);
-      showToast('Could not connect to laptop backend.', 'error');
+      showToast('Could not connect to laptop backend. Click "Local storage" to update URL.', 'error');
       renderGallery();
     }
   }
@@ -158,6 +182,7 @@
 
     const xhr = new XMLHttpRequest();
     xhr.open('POST', `${getApiBase()}/api/photos`, true);
+    xhr.setRequestHeader('Bypass-Tunnel-Reminder', 'true');
 
     xhr.upload.onprogress = (e) => {
       if (e.lengthComputable) {
@@ -197,7 +222,8 @@
   async function deletePhoto(photoId) {
     try {
       const response = await fetch(`${getApiBase()}/api/photos/${encodeURIComponent(photoId)}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers: { 'Bypass-Tunnel-Reminder': 'true' }
       });
 
       if (!response.ok) throw new Error('Failed to delete photo.');
@@ -217,7 +243,10 @@
 
   async function deleteAllPhotos() {
     try {
-      const response = await fetch(`${getApiBase()}/api/photos`, { method: 'DELETE' });
+      const response = await fetch(`${getApiBase()}/api/photos`, {
+        method: 'DELETE',
+        headers: { 'Bypass-Tunnel-Reminder': 'true' }
+      });
       if (!response.ok) throw new Error('Failed to clear photos.');
 
       showToast('All textbook photos cleared.', 'success');
