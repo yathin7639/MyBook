@@ -285,6 +285,28 @@
     });
   }
 
+  // Cache of image blobs for tunnel bypass
+  const blobUrlCache = new Map();
+
+  async function getImageSrc(rawUrl) {
+    if (!rawUrl) return '';
+    if (blobUrlCache.has(rawUrl)) return blobUrlCache.get(rawUrl);
+    if (!rawUrl.includes('loca.lt')) return rawUrl;
+
+    try {
+      const res = await fetch(rawUrl, {
+        headers: { 'Bypass-Tunnel-Reminder': 'true' }
+      });
+      if (!res.ok) throw new Error('Failed to load blob');
+      const blob = await res.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      blobUrlCache.set(rawUrl, objectUrl);
+      return objectUrl;
+    } catch (e) {
+      return rawUrl;
+    }
+  }
+
   function createCard(photo, index) {
     const card = document.createElement('article');
     card.className = 'doubt-card';
@@ -296,7 +318,7 @@
 
     card.innerHTML = `
       <div class="doubt-thumbnail-container" data-index="${index}" title="Click to inspect question">
-        <img class="doubt-thumbnail" src="${imageUrl}" alt="${escapeHtml(photo.name)}" loading="lazy">
+        <img class="doubt-thumbnail" src="" alt="${escapeHtml(photo.name)}" loading="lazy">
         <div class="doubt-thumb-overlay">
           <span class="inspect-pill">Inspect</span>
         </div>
@@ -318,6 +340,12 @@
         </div>
       </div>
     `;
+
+    // Load image through tunnel safely
+    const thumbImg = card.querySelector('.doubt-thumbnail');
+    getImageSrc(imageUrl).then(src => {
+      if (thumbImg) thumbImg.src = src;
+    });
 
     card.querySelector('.doubt-thumbnail-container').addEventListener('click', () => openViewer(index));
     card.querySelector('.btn-card-open').addEventListener('click', () => openViewer(index));
@@ -370,7 +398,10 @@
     el.viewerPrevBtn.disabled = state.filteredPhotos.length <= 1;
     el.viewerNextBtn.disabled = state.filteredPhotos.length <= 1;
 
-    el.viewerImage.src = imageUrl;
+    el.viewerImage.src = '';
+    getImageSrc(imageUrl).then(src => {
+      el.viewerImage.src = src;
+    });
     resetViewerTransform();
   }
 
