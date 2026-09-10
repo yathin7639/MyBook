@@ -15,10 +15,21 @@ const API_BASE_URL = "http://localhost:3000";
 
   // Helper to get active backend URL (supports localStorage override via UI click)
   function getBackendUrl() {
-    const saved = localStorage.getItem('mybook_backend_url');
-    if (saved && saved.trim()) {
-      return saved.trim().replace(/\/+$/, '');
-    }
+    // Purge legacy stale tunnel URLs from older versions
+    try {
+      const oldTunnel = localStorage.getItem('doubt_viewer_backend_url');
+      if (oldTunnel && oldTunnel.includes('loca.lt')) {
+        localStorage.removeItem('doubt_viewer_backend_url');
+      }
+      const saved = localStorage.getItem('mybook_backend_url');
+      if (saved && saved.trim()) {
+        if (saved.includes('loca.lt')) {
+          localStorage.removeItem('mybook_backend_url');
+        } else {
+          return saved.trim().replace(/\/+$/, '');
+        }
+      }
+    } catch (e) {}
     return API_BASE_URL.replace(/\/+$/, '');
   }
 

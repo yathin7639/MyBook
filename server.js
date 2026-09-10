@@ -62,39 +62,26 @@ function sanitizeDisplayName(name) {
 }
 
 // =========================================================================
-// CORS Configuration
-// Allows GitHub Pages origin + local development origins
 // =========================================================================
-const allowedOrigins = [
-  'https://yathin7639.github.io',
-  'http://localhost:3000',
-  'http://127.0.0.1:3000',
-  'http://localhost:5500',
-  'http://127.0.0.1:5500'
-];
+// CORS Configuration
+// Allows GitHub Pages (https://yathin7639.github.io), localtunnel, ngrok,
+// localhost, and local file viewer. Responds 200 to all OPTIONS preflights.
+// =========================================================================
+app.use((req, res, next) => {
+  const origin = req.headers.origin || '*';
+  res.setHeader('Access-Control-Allow-Origin', origin);
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH, HEAD');
+  res.setHeader('Access-Control-Allow-Headers', '*');
+  res.setHeader('Access-Control-Expose-Headers', '*');
+  res.setHeader('Access-Control-Allow-Credentials', 'false');
 
-app.use(cors({
-  origin: (origin, callback) => {
-    // Allow requests with no origin or file:// protocol (e.g. mobile apps, curl, server-to-server, local file viewer)
-    if (!origin || origin === 'null') return callback(null, true);
-    
-    // Check whitelist or localhost or localtunnel/ngrok if user tests through tunnels
-    const isAllowed = allowedOrigins.includes(origin) || 
-                      /^https?:\/\/localhost(:\d+)?$/.test(origin) ||
-                      /^https?:\/\/127\.0\.0\.1(:\d+)?$/.test(origin) ||
-                      origin.endsWith('.github.io') ||
-                      origin.endsWith('.loca.lt');
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+  next();
+});
 
-    if (isAllowed) {
-      callback(null, true);
-    } else {
-      callback(new Error(`CORS blocked for origin: ${origin}`));
-    }
-  },
-  methods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Bypass-Tunnel-Reminder'],
-  credentials: false
-}));
+app.options('*', (req, res) => res.status(200).end());
 
 app.use(express.json());
 
