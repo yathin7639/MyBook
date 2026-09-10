@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gallery — Studio Minimal</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0c0d0e;
+      --surface: #141518;
+      --surface-elevated: rgba(26, 28, 32, 0.7);
+      --border: rgba(255, 255, 255, 0.08);
+      --border-hover: rgba(255, 255, 255, 0.2);
+      --text: #f3f4f6;
+      --text-muted: #8b8f98;
+      --accent: #ffffff;
+      --radius-sm: 8px;
+      --radius-md: 14px;
+      --radius-lg: 20px;
+      --ease: cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 4rem 1.5rem 6rem;
+      overflow-x: hidden;
+    }
+
+    /* Ambient background glow */
+    .glow {
+      position: fixed;
+      top: -20%;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 700px;
+      height: 400px;
+      background: radial-gradient(circle, rgba(255, 255, 255, 0.04) 0%, rgba(0, 0, 0, 0) 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* Top Navigation / Brand */
+    header {
+      position: relative;
+      z-index: 1;
+      text-align: center;
+      max-width: 600px;
+      margin-bottom: 3.5rem;
+    }
+
+    .badge {
+      display: inline-block;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--text-muted);
+      border: 1px solid var(--border);
+      padding: 0.35rem 0.85rem;
+      border-radius: 100px;
+      margin-bottom: 1.25rem;
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    h1 {
+      font-size: 2.25rem;
+      font-weight: 500;
+      letter-spacing: -0.04em;
+      margin-bottom: 0.75rem;
+    }
+
+    header p {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+      font-weight: 300;
+      line-height: 1.6;
+    }
+
+    /* Minimalist Dropzone */
+    .dropzone-container {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      max-width: 580px;
+      margin-bottom: 4rem;
+    }
+
+    .dropzone {
+      position: relative;
+      border: 1px dashed var(--border);
+      background: var(--surface-elevated);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-radius: var(--radius-lg);
+      padding: 2.5rem 1.5rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.75rem;
+      cursor: pointer;
+      transition: all 0.3s var(--ease);
+    }
+
+    .dropzone:hover, .dropzone.dragover {
+      border-color: var(--border-hover);
+      background: rgba(30, 32, 38, 0.85);
+      transform: translateY(-2px);
+    }
+
+    .dropzone input {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+    }
+
+    .upload-icon {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.05);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid var(--border);
+      margin-bottom: 0.25rem;
+    }
+
+    .upload-icon svg {
+      width: 16px;
+      height: 16px;
+      stroke: var(--text);
+    }
+
+    .dropzone-title {
+      font-size: 0.9rem;
+      font-weight: 500;
+      color: var(--text);
+    }
+
+    .dropzone-desc {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    /* Grid Gallery */
+    .gallery {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      max-width: 1140px;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 1.5rem;
+    }
+
+    .photo-card {
+      position: relative;
+      aspect-ratio: 4 / 5;
+      border-radius: var(--radius-md);
+      overflow: hidden;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      cursor: pointer;
+      transition: transform 0.4s var(--ease), border-color 0.4s var(--ease), box-shadow 0.4s var(--ease);
+    }
+
+    .photo-card:hover {
+      transform: translateY(-4px);
+      border-color: var(--border-hover);
+      box-shadow: 0 16px 32px rgba(0, 0, 0, 0.4);
+    }
+
+    .photo-card img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transition: transform 0.6s var(--ease);
+    }
+
+    .photo-card:hover img {
+      transform: scale(1.04);
+    }
+
+    /* Floating Inspector / Zoom Modal */
+    .lightbox {
+      position: fixed;
+      inset: 0;
+      z-index: 1000;
+      background: rgba(8, 9, 10, 0.85);
+      backdrop-filter: blur(28px);
+      -webkit-backdrop-filter: blur(28px);
+      display: flex;
+      flex-direction: column;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s var(--ease);
+    }
+
+    .lightbox.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    /* Floating Island Controls */
+    .lightbox-nav {
+      position: absolute;
+      top: 1.5rem;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 20;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: rgba(22, 24, 28, 0.8);
+      border: 1px solid var(--border);
+      padding: 0.4rem 0.5rem;
+      border-radius: 100px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    }
+
+    .btn-icon {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-icon:hover {
+      color: var(--text);
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    .btn-pill {
+      background: var(--text);
+      color: #000;
+      border: none;
+      padding: 0 1rem;
+      height: 36px;
+      border-radius: 100px;
+      font-size: 0.8rem;
+      font-weight: 500;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      text-decoration: none;
+      transition: opacity 0.2s;
+    }
+
+    .btn-pill:hover {
+      opacity: 0.9;
+    }
+
+    .divider {
+      width: 1px;
+      height: 18px;
+      background: var(--border);
+      margin: 0 4px;
+    }
+
+    .zoom-level {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      min-width: 44px;
+      text-align: center;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Interactive Viewport */
+    .viewport {
+      flex: 1;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      cursor: grab;
+      user-select: none;
+    }
+
+    .viewport:active {
+      cursor: grabbing;
+    }
+
+    .viewport img {
+      max-width: 85%;
+      max-height: 80%;
+      transform-origin: center center;
+      will-change: transform;
+      border-radius: 6px;
+      box-shadow: 0 30px 60px rgba(0, 0, 0, 0.7);
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="glow"></div>
+
+  <header>
+    <div class="badge">Inspection Canvas</div>
+    <h1>Minimal Gallery</h1>
+    <p>Drop your photography below. Examine details up to 6× magnification with freeform panning.</p>
+  </header>
+
+  <div class="dropzone-container">
+    <div class="dropzone" id="dropZone">
+      <input type="file" id="fileInput" accept="image/*" multiple>
+      <div class="upload-icon">
+        <svg fill="none" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+      </div>
+      <div class="dropzone-title">Upload Photographs</div>
+      <div class="dropzone-desc">Drag & drop or browse from device</div>
+    </div>
+  </div>
+
+  <main class="gallery" id="gallery"></main>
+
+  <!-- Inspection Modal -->
+  <div class="lightbox" id="lightbox">
+    <nav class="lightbox-nav">
+      <button class="btn-icon" id="zoomOut" title="Zoom Out">
+        <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M5 12h14"/></svg>
+      </button>
+      <span class="zoom-level" id="zoomDisplay">100%</span>
+      <button class="btn-icon" id="zoomIn" title="Zoom In">
+        <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+      </button>
+      <button class="btn-icon" id="resetBtn" title="Reset View">
+        <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+      </button>
+      <div class="divider"></div>
+      <a id="downloadBtn" class="btn-pill" download="photo.jpg">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Download
+      </a>
+      <button class="btn-icon" id="closeBtn" title="Close">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>
+      </button>
+    </nav>
+
+    <div class="viewport" id="viewport">
+      <img id="activeImg" src="" alt="Selected capture">
+    </div>
+  </div>
+
+  <script>
+    const fileInput = document.getElementById('fileInput');
+    const dropZone = document.getElementById('dropZone');
+    const gallery = document.getElementById('gallery');
+    const lightbox = document.getElementById('lightbox');
+    const activeImg = document.getElementById('activeImg');
+    const viewport = document.getElementById('viewport');
+    const zoomDisplay = document.getElementById('zoomDisplay');
+    const zoomInBtn = document.getElementById('zoomIn');
+    const zoomOutBtn = document.getElementById('zoomOut');
+    const resetBtn = document.getElementById('resetBtn');
+    const downloadBtn = document.getElementById('downloadBtn');
+    const closeBtn = document.getElementById('closeBtn');
+
+    let scale = 1;
+    let translateX = 0;
+    let translateY = 0;
+    let isDragging = false;
+    let startX, startY;
+
+    // Drag-over styling
+    ['dragenter', 'dragover'].forEach(name => {
+      dropZone.addEventListener(name, (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
+    });
+    ['dragleave', 'drop'].forEach(name => {
+      dropZone.addEventListener(name, (e) => { e.preventDefault(); dropZone.classList.remove('dragover'); });
+    });
+
+    // File input handler
+    dropZone.addEventListener('drop', (e) => handleFiles(e.dataTransfer.files));
+    fileInput.addEventListener('change', (e) => handleFiles(e.target.files));
+
+    function handleFiles(files) {
+      Array.from(files).forEach(file => {
+        if (!file.type.startsWith('image/')) return;
+        const reader = new FileReader();
+        reader.onload = (e) => appendCard(e.target.result, file.name);
+        reader.readAsDataURL(file);
+      });
+    }
+
+    function appendCard(src, filename) {
+      const card = document.createElement('div');
+      card.className = 'photo-card';
+      const img = document.createElement('img');
+      img.src = src;
+      img.loading = 'lazy';
+      card.appendChild(img);
+
+      card.onclick = () => openLightbox(src, filename);
+      gallery.prepend(card);
+    }
+
+    function openLightbox(src, filename) {
+      activeImg.src = src;
+      downloadBtn.href = src;
+      downloadBtn.download = filename || 'capture.png';
+      resetView();
+      lightbox.classList.add('active');
+    }
+
+    function closeLightbox() {
+      lightbox.classList.remove('active');
+    }
+
+    closeBtn.onclick = closeLightbox;
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeLightbox();
+    });
+
+    // Zoom & Pan transforms
+    function updateTransform() {
+      activeImg.style.transform = `translate3d(${translateX}px, ${translateY}px, 0) scale(${scale})`;
+      zoomDisplay.innerText = `${Math.round(scale * 100)}%`;
+    }
+
+    function setZoom(newScale) {
+      scale = Math.min(Math.max(0.6, newScale), 6); // 60% to 600%
+      updateTransform();
+    }
+
+    function resetView() {
+      scale = 1;
+      translateX = 0;
+      translateY = 0;
+      updateTransform();
+    }
+
+    zoomInBtn.onclick = () => setZoom(scale + 0.35);
+    zoomOutBtn.onclick = () => setZoom(scale - 0.35);
+    resetBtn.onclick = resetView;
+
+    // Mouse wheel zoom
+    viewport.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const factor = e.deltaY > 0 ? -0.2 : 0.2;
+      setZoom(scale + factor);
+    }, { passive: false });
+
+    // Smooth pan dragging
+    viewport.addEventListener('mousedown', (e) => {
+      isDragging = true;
+      startX = e.clientX - translateX;
+      startY = e.clientY - translateY;
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (!isDragging) return;
+      translateX = e.clientX - startX;
+      translateY = e.clientY - startY;
+      updateTransform();
+    });
+
+    window.addEventListener('mouseup', () => {
+      isDragging = false;
+    });
+  </script>
+</body>
+</html>
