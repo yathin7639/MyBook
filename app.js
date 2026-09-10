@@ -102,22 +102,21 @@
     fetchPhotos();
   }
 
+  // Fixed tunnel URL dedicated to your GitHub Pages frontend
+  const GITHUB_PAGES_BACKEND_URL = 'https://yathin-book-doubt-viewer.loca.lt';
+
   function getApiBase() {
+    // 1. If user set a custom backend URL in settings, use it
     const custom = localStorage.getItem('doubt_viewer_backend_url');
     if (custom) return custom.replace(/\/+$/, '');
 
-    // If hosted remotely (e.g. on GitHub Pages) and not on localhost
+    // 2. If running on GitHub Pages or external domain, automatically use your laptop tunnel
     const isLocal = ['localhost', '127.0.0.1'].includes(window.location.hostname);
-    if (!isLocal) {
-      const entered = prompt(
-        'Connect to your Laptop Backend:\n\nPlease enter your Localtunnel URL from your laptop\n(e.g. https://xxxx.loca.lt):'
-      );
-      if (entered && entered.trim()) {
-        const cleanUrl = entered.trim().replace(/\/+$/, '');
-        localStorage.setItem('doubt_viewer_backend_url', cleanUrl);
-        return cleanUrl;
-      }
+    if (!isLocal || window.location.hostname.includes('github.io')) {
+      return GITHUB_PAGES_BACKEND_URL;
     }
+
+    // 3. If running locally on localhost/127.0.0.1, use relative origin
     return '';
   }
 
